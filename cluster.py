@@ -102,7 +102,6 @@ class Clusters(object):
         return result
 
 
-
     def allClusterWords(self):
         return chain.from_iterable(self.C)
 
@@ -121,6 +120,7 @@ class Clusters(object):
             prevValue = self.L[(c2,c1)]
         else:
             print('this is insane, {} and {} not found in prevL'.format(c1,c2))
+            raise AssertionError
             return self.LFromScratch(c1,c2)
         return prevValue - \
                 sum(self.W(c,m) for c in (c1,c2) for m in (m1,m2)) + \
@@ -142,6 +142,7 @@ class Clusters(object):
             self.removeFromL(node,m2)
             self.L[(node,m1+m2)] = self.LFromScratch(node,m1+m2)
             self.L[(node,newNode)] = self.LFromScratch(node,newNode)
+        self.L[(m1+m2,newNode)] = self.LFromScratch(m1+m2,newNode)
 
 
     def MergeHighest(self):
