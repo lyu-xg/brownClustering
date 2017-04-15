@@ -49,6 +49,8 @@ class Clusters(object):
         print(self.remainingWords[len(self.remainingWords)-50:])
         self.C = tuple((self.remainingWords.pop(),) for i in range(self.K))
         print(self.remainingWords[len(self.remainingWords)-50:])
+        self.countCache = {}
+        self.biCountCache = {}
         self.WCache = {}
         self.initL()
         if DEBUG: print('L table initialization complete.')
@@ -60,7 +62,6 @@ class Clusters(object):
         self.wordPairs = tuple(pairs)
     '''
     def weight(self,c1,c2):
-
         biCount = self.BiCount(c1,c2)
         if not biCount:
             return 0
@@ -69,25 +70,38 @@ class Clusters(object):
         return biCount*log((biCount*self.M.N)/individualCounts, 2)
 
     def W(self,c1,c2):
-        iden = (tuple(c1),tuple(c2))
-        if iden in self.WCache:
-            return self.WCache[iden]
 
-        #if DEBUG: print('calculating weight for {}'.format([c1,c2]))
+        if (c1,c2) in self.WCache:
+            return self.WCache[(c1,c2)]
+
         if DETAIL:
             print('weight of {} and {}: '.format(c1,c2),self.weight(c1,c2)+self.weight(c2,c1))
         result = self.weight(c1,c2)
         if c1!=c2:
             result += self.weight(c2,c1)
-        self.WCache[iden] = result
+        self.WCache[(c1,c2)] = result
         return result
 
     def count(self, c):
-        return sum(self.M.count(w) for w in c)# or 0.1
+        if c[:-1] in self.countCache:
+            result = self.countCache[c[:-1]]+self.M.count(c[-1])
+        else:
+            result = sum(self.M.count(w) for w in c)# or 0.1
+        self.countCache[c] = result
+        return result
 
     def BiCount(self, c1, c2):
-        #if DEBUG: print('getting BiCount for {} and {}'.format(c1,c2))
-        return sum(self.M.count(i,j) for i in c1 for j in c2) #or 0.1
+        if (c1[:-1],c2) in self.biCountCache:
+            result = self.biCountCache[(c1[:-1],c2)]+sum(self.M.count(c1[-1],j) for j in c2)
+        elif (c1,c2[:-1]) in self.biCountCache:
+            result = self.biCountCache[(c1,c2[:-1])]+sum(self.M.count(i,c2[-1]) for i in c1)
+        #if DETAIL: print('getting BiCount for {} and {}'.format(c1,c2))
+        else:
+            result = sum(self.M.count(i,j) for i in c1 for j in c2) #or 0.1
+        self.biCountCache[(c1,c2)] = result
+        return result
+
+
 
     def allClusterWords(self):
         return chain.from_iterable(self.C)
