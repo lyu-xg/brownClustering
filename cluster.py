@@ -113,18 +113,6 @@ class Clusters(object):
                 sum(W(c2,w) for w in otherNodes) + \
                 sum(W(c1+c2,w) for w in otherNodes)
 
-    def LAfterMerge(self, c1, c2, m1, m2):
-        if (c1,c2) in self.L:
-            prevValue = self.L[(c1,c2)]
-        elif (c2,c1) in self.L:
-            prevValue = self.L[(c2,c1)]
-        else:
-            print('this is insane, {} and {} not found in prevL'.format(c1,c2))
-            raise AssertionError
-            return self.LFromScratch(c1,c2)
-        return prevValue - \
-                sum(self.W(c,m) for c in (c1,c2) for m in (m1,m2)) + \
-                sum(self.W(c,m1+m2) for c in (c1,c2))
 
     def removeFromL(self,c1,c2):
         del self.L[(c1,c2)]
@@ -175,19 +163,41 @@ class Clusters(object):
             outfile.write(repr(self.L))'''
         if DEBUG: print('L table initialized from scratch complete:')
 
+    def LAfterMerge(self, c1, c2, m1, m2):
+        if (c1,c2) in self.L:
+            prevValue = self.L[(c1,c2)]
+        elif (c2,c1) in self.L:
+            prevValue = self.L[(c2,c1)]
+        else:
+            print('this is insane, {} and {} not found in prevL'.format(c1,c2))
+            raise AssertionError
+            return self.LFromScratch(c1,c2)
+        return prevValue - \
+                sum(self.W(c,m) for c in (c1,c2) for m in (m1,m2)) + \
+                sum(self.W(c,m1+m2) for c in (c1,c2))
+
+    def saveProgress(self):
+        with open('savedHistory.pyon','w') as outfile:
+            outfile.write(repr(self.mergeHistory))
+
     def keepMerging(self):
         print('initally',self.L.most_common(3))
         mergeNumber = 0
         while self.remainingWords:
             if DEBUG:
                 print(mergeNumber)
-                mergeNumber+=1
+            mergeNumber+=1
             self.MergeHighest()
+            recordNumber = mergeNumber%20
+            if not recordNumber:
+                self.saveProgress()
+
             if DETAIL:
                 print('***************************************************')
                 print('after merge:')
                 print(self.C)
                 print('\n\n\n')
+        self.saveProgress()
         print(self.mergeHistory)
 
 
