@@ -40,6 +40,10 @@ class TwoGramModel(object):
             print('illegal access to the Model.')
             return 0
 
+    def merge(self,c1,c2):
+
+
+
 class Clusters(object):
     def __init__(self, gramModel, wordlist, K=40):
         self.K = K
