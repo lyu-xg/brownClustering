@@ -40,7 +40,21 @@ class TwoGramModel(object):
             print('illegal access to the Model.')
             return 0
 
-    def merge(self,c1,c2):
+    def merge(self,w1,w2):
+        # we merge w2 to w1, hence deleting c2
+        self.OneGramCounter[w1] += self.OneGramCounter[w2]
+        del self.OneGramCounter[w2]
+
+        for (x1,x2),count in tuple(self.TwoGramCounter.items()):
+            if w2 not in (x1,x2):
+                continue
+            if x1 == w2 and x2 == w2:
+                self.TwoGramCounter[(w1,w1)] += count
+            elif x1 == w2:
+                self.TwoGramCounter[(w1,x2)] += count
+            elif x2 == w2:
+                self.TwoGramCounter[(x1,w1)] += count
+            del self.TwoGramCounter[(x1,x2)]
 
 
 
@@ -50,15 +64,15 @@ class Clusters(object):
         self.M = gramModel
         self.allWords = set(wordlist)
         self.remainingWords = wordlist
-        print(self.remainingWords[len(self.remainingWords)-50:])
-        self.C = tuple((self.remainingWords.pop(),) for i in range(self.K))
-        print(self.remainingWords[len(self.remainingWords)-50:])
-        self.countCache = {}
-        self.biCountCache = {}
+        self.C = tuple((self.remainingWords.pop(),) for i in range(self.K+1))
+        #self.countCache = {}
+        #self.biCountCache = {}
         self.WCache = {}
         self.initL()
         if DEBUG: print('L table initialization complete.')
         self.mergeHistory = []
+        self.actualClusters = [[x] for x in self.C]
+        assert len(self.actualClusters) == self.K + 1
     '''
     def calcAllWordPairs(self):
         pairs = combinations(self.allWords, 2)
@@ -87,14 +101,18 @@ class Clusters(object):
         return result
 
     def count(self, c):
+        '''
         if c[:-1] in self.countCache:
             result = self.countCache[c[:-1]]+self.M.count(c[-1])
         else:
             result = sum(self.M.count(w) for w in c)# or 0.1
         self.countCache[c] = result
         return result
+        '''
+        return sum(self.M.count(w) for w in c)
 
     def BiCount(self, c1, c2):
+        '''
         if (c1[:-1],c2) in self.biCountCache:
             result = self.biCountCache[(c1[:-1],c2)]+sum(self.M.count(c1[-1],j) for j in c2)
         elif (c1,c2[:-1]) in self.biCountCache:
@@ -104,6 +122,8 @@ class Clusters(object):
             result = sum(self.M.count(i,j) for i in c1 for j in c2) #or 0.1
         self.biCountCache[(c1,c2)] = result
         return result
+        '''
+        return sum(self.M.count(i,j) for i in c1 for j in c2)
 
 
     def allClusterWords(self):
@@ -117,24 +137,45 @@ class Clusters(object):
                 sum(W(c2,w) for w in otherNodes) + \
                 sum(W(c1+c2,w) for w in otherNodes)
 
+    def recordActualClusters(self, m1, m2):
+        for c in self.actualClusters:
+            if c[0] == m1:
+                c.append(m2)
 
     def removeFromL(self,c1,c2):
         del self.L[(c1,c2)]
         del self.L[(c2,c1)]
 
     def MergeClusters(self, m1, m2):
+        self.recordActualClusters(m1,m2)
         self.removeFromL(m1,m2)
         newNode = (self.remainingWords.pop(),)
         otherNodes = tuple(x for x in self.C if x not in (m1,m2))
-        self.C = otherNodes+(m1+m2,newNode)
+        mergedNode = m1
+
+        self.C = otherNodes+(mergedNode, newNode)
         for c1,c2 in combinations(otherNodes, 2):
             self.L[(c1,c2)] = self.LAfterMerge(c1,c2,m1,m2)
+        self.M.merge(m1,m2)
         for node in otherNodes:
             self.removeFromL(node,m1)
             self.removeFromL(node,m2)
-            self.L[(node,m1+m2)] = self.LFromScratch(node,m1+m2)
+            self.L[(node,mergedNode)] = self.LFromScratch(node,mergedNode)
             self.L[(node,newNode)] = self.LFromScratch(node,newNode)
-        self.L[(m1+m2,newNode)] = self.LFromScratch(m1+m2,newNode)
+        self.L[(mergedNode,newNode)] = self.LFromScratch(mergedNode,newNode)
+
+    def LAfterMerge(self, c1, c2, m1, m2):
+        if (c1,c2) in self.L:
+            prevValue = self.L[(c1,c2)]
+        elif (c2,c1) in self.L:
+            prevValue = self.L[(c2,c1)]
+        else:
+            print('this is insane, {} and {} not found in prevL'.format(c1,c2))
+            raise AssertionError
+            return self.LFromScratch(c1,c2)
+        return prevValue - \
+                sum(self.W(c,m) for c in (c1,c2) for m in (m1,m2)) + \
+                sum(self.W(c,m1+m2) for c in (c1,c2))
 
 
     def MergeHighest(self):
@@ -143,6 +184,8 @@ class Clusters(object):
             print('Merging {} and {} at {}'.format(winner1,winner2,quality))
         self.MergeClusters(winner1,winner2)
         self.mergeHistory.append((winner1,winner2))
+        self.WCache = {} # reset W cache
+
 
 
     def initL(self):
@@ -158,7 +201,7 @@ class Clusters(object):
         if DEBUG: print('initializing L Table from scratch')
 
         self.L = Counter()
-        clusterPairs = combinations(self.C+((self.remainingWords.pop(),),), 2)
+        clusterPairs = combinations(self.C, 2)
         for c1,c2 in clusterPairs:
             if DETAIL: print('calculating for cluster pair',c1,c2)
             self.L[(tuple(c1),tuple(c2))] = self.LFromScratch(c1,c2)
@@ -167,22 +210,12 @@ class Clusters(object):
             outfile.write(repr(self.L))'''
         if DEBUG: print('L table initialized from scratch complete:')
 
-    def LAfterMerge(self, c1, c2, m1, m2):
-        if (c1,c2) in self.L:
-            prevValue = self.L[(c1,c2)]
-        elif (c2,c1) in self.L:
-            prevValue = self.L[(c2,c1)]
-        else:
-            print('this is insane, {} and {} not found in prevL'.format(c1,c2))
-            raise AssertionError
-            return self.LFromScratch(c1,c2)
-        return prevValue - \
-                sum(self.W(c,m) for c in (c1,c2) for m in (m1,m2)) + \
-                sum(self.W(c,m1+m2) for c in (c1,c2))
 
     def saveProgress(self):
         with open('savedHistory.pyon','w') as outfile:
             outfile.write(repr(self.mergeHistory))
+        with open('savedClusters.pyon','w') as outfile:
+            outfile.write(repr(self.actualClusters))
 
     def keepMerging(self):
         print('initally',self.L.most_common(3))
@@ -202,7 +235,7 @@ class Clusters(object):
                 print(self.C)
                 print('\n\n\n')
         self.saveProgress()
-        print(self.mergeHistory)
+        print('\n\nmerge history:',self.mergeHistory)
 
 
 def main():
@@ -210,7 +243,16 @@ def main():
         WORDLIST = [line[:line.find(' ')] for line in infile]
     M = TwoGramModel(WORDLIST)
     C = Clusters(M, WORDLIST)
-
+    '''
+    for _ in range(200):
+        C.MergeHighest()
+    for c in C.actualClusters:
+        print(c)
+    print(M.count('a','thing'))
+    print(M.count('an','thing'))
+    M.merge('an','a')
+    print(M.count('an','thing'))
+    '''
     C.keepMerging()
 
 

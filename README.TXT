@@ -12,4 +12,5 @@
 
 5. see wordList.txt (if file does not exist, run parser.py)
 
-6. 
+6. run printer.py to see results.
+   to reconstruct the results, run cluster.py (takes about 10-20 mins)
