@@ -72,7 +72,6 @@ class Clusters(object):
         if DEBUG: print('L table initialization complete.')
         self.mergeHistory = []
         self.actualClusters = [[x] for x in self.C]
-        assert len(self.actualClusters) == self.K + 1
     '''
     def calcAllWordPairs(self):
         pairs = combinations(self.allWords, 2)
@@ -187,7 +186,6 @@ class Clusters(object):
         self.WCache = {} # reset W cache
 
 
-
     def initL(self):
         # L = change of Quality if c1 and c2 were to be Merged
         '''
@@ -222,7 +220,7 @@ class Clusters(object):
         mergeNumber = 0
         while self.remainingWords:
             if DEBUG:
-                print(mergeNumber)
+                print('round',mergeNumber)
             mergeNumber+=1
             self.MergeHighest()
             recordNumber = mergeNumber%20
@@ -235,7 +233,8 @@ class Clusters(object):
                 print(self.C)
                 print('\n\n\n')
         self.saveProgress()
-        print('\n\nmerge history:',self.mergeHistory)
+        if DEBUG: print('All Merges complete.')
+        #print('\n\nmerge history:',self.mergeHistory)
 
 
 def main():

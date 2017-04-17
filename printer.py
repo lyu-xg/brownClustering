@@ -16,7 +16,7 @@ def readClusters():
 
 def printer(someIterable):
     for index,item in enumerate(someIterable):
-        print("{}. {}\n\n".format(index+1,item))
+        print("{}. {}\n\n".format(index,item))
 
 
 def main():
