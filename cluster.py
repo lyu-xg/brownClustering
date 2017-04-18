@@ -1,62 +1,12 @@
-from parser import getAllWords, OUTPUT
+from parser import OUTPUT
 from math import log
 import os.path
 from itertools import chain, combinations, permutations
 from collections import Counter
+from twoGramModel import TwoGramModel
 
 DEBUG = True
 DETAIL = False
-
-
-class TwoGramModel(object):
-    def __init__(self,wordlist):
-        if DEBUG: print("building bi-gram model.")
-        WBAG = set(wordlist)
-        self.N = len(WBAG)
-        def replaceLoFreq(sentence):
-            return tuple(map(lambda x:x if x in WBAG else 'UNK', sentence))
-        def combineTwoWord(sentence):
-            res = []
-            for i in range(len(sentence)-1):
-                res.append((sentence[i],sentence[i+1]))
-            return res
-
-        #allPurmutations = permutations(WBAG, 2)
-        #sentences = chain(map(replaceLoFreq, getAllWords()),allPurmutations)
-        sentences = tuple(map(replaceLoFreq,getAllWords()))
-        self.OneGramCounter = Counter(chain.from_iterable(sentences))
-
-        combinedSentence = map(combineTwoWord, sentences)
-        self.TwoGramCounter = Counter(chain.from_iterable(combinedSentence))
-        if DEBUG: print('bi-gram model build complete.')
-
-    def count(self,*args):
-        # e.g. M.count('there')  M.count('there','is')
-        if len(args)==1:
-            return self.OneGramCounter[args[0]]
-        elif len(args)==2:
-            return self.TwoGramCounter[tuple(args)]
-        else:
-            print('illegal access to the Model.')
-            return 0
-
-    def merge(self,w1,w2):
-        # we merge w2 to w1, hence deleting c2
-        self.OneGramCounter[w1] += self.OneGramCounter[w2]
-        del self.OneGramCounter[w2]
-
-        for (x1,x2),count in tuple(self.TwoGramCounter.items()):
-            if w2 not in (x1,x2):
-                continue
-            if x1 == w2 and x2 == w2:
-                self.TwoGramCounter[(w1,w1)] += count
-            elif x1 == w2:
-                self.TwoGramCounter[(w1,x2)] += count
-            elif x2 == w2:
-                self.TwoGramCounter[(x1,w1)] += count
-            del self.TwoGramCounter[(x1,x2)]
-
-
 
 class Clusters(object):
     def __init__(self, gramModel, wordlist, K=40):
@@ -71,13 +21,20 @@ class Clusters(object):
         self.initL()
         if DEBUG: print('L table initialization complete.')
         self.mergeHistory = []
-        self.actualClusters = [[x] for x in self.C]
+        self.initActualClusters()
     '''
     def calcAllWordPairs(self):
         pairs = combinations(self.allWords, 2)
         pairs = filter(lambda x:M.count(x[0],x[1]) or M.count(x[1],x[0]), pairs)
         self.wordPairs = tuple(pairs)
     '''
+
+    def initActualClusters(self):
+        self.actualClusters = {}
+        for c in self.C:
+            self.actualClusters[c] = [c]
+        if DETAIL: print('initial clusters: {}'.format(self.actualClusters))
+
     def weight(self,c1,c2):
         biCount = self.BiCount(c1,c2)
         if not biCount:
@@ -137,9 +94,18 @@ class Clusters(object):
                 sum(W(c1+c2,w) for w in otherNodes)
 
     def recordActualClusters(self, m1, m2):
-        for c in self.actualClusters:
-            if c[0] == m1:
-                c.append(m2)
+        C = self.actualClusters
+        self.mergeHistory.append((m1,m2))
+        if len(C) != 41:
+            print('WARNING: actual clusters size {}, while recording {} and {}'.format(len(C),m1,m2))
+        if m1 not in C or m2 not in C:
+            print('WARNING: m1:{} or m2:{} both not cluster leaders'.format(m1,m2))
+            if m1 not in C:
+                print('\t\tm1 is not cluster leader')
+            if m2 not in C:
+                print('\t\tm2 is not cluster leader')
+        C[m1]+=C[m2]
+        del C[m2]
 
     def removeFromL(self,c1,c2):
         del self.L[(c1,c2)]
@@ -149,6 +115,7 @@ class Clusters(object):
         self.recordActualClusters(m1,m2)
         self.removeFromL(m1,m2)
         newNode = (self.remainingWords.pop(),)
+        self.actualClusters[newNode] = [newNode]
         otherNodes = tuple(x for x in self.C if x not in (m1,m2))
         mergedNode = m1
 
@@ -169,7 +136,7 @@ class Clusters(object):
         elif (c2,c1) in self.L:
             prevValue = self.L[(c2,c1)]
         else:
-            print('this is insane, {} and {} not found in prevL'.format(c1,c2))
+            print('WARNING: {} and {} not found in prevL'.format(c1,c2))
             raise AssertionError
             return self.LFromScratch(c1,c2)
         return prevValue - \
@@ -182,9 +149,11 @@ class Clusters(object):
         if DEBUG:
             print('Merging {} and {} at {}'.format(winner1,winner2,quality))
         self.MergeClusters(winner1,winner2)
-        self.mergeHistory.append((winner1,winner2))
-        self.WCache = {} # reset W cache
+        self.WCache = {} # evict Weight cache for the next round of merge
 
+    def lastMerge(self):
+        (winner1,winner2),_ = self.L.most_common(1)[0]
+        self.recordActualClusters(winner1,winner2)
 
     def initL(self):
         # L = change of Quality if c1 and c2 were to be Merged
@@ -219,6 +188,7 @@ class Clusters(object):
         print('initally',self.L.most_common(3))
         mergeNumber = 0
         while self.remainingWords:
+        #for _ in range(100):
             if DEBUG:
                 print('round',mergeNumber)
             mergeNumber+=1
@@ -232,6 +202,7 @@ class Clusters(object):
                 print('after merge:')
                 print(self.C)
                 print('\n\n\n')
+        self.lastMerge()
         self.saveProgress()
         if DEBUG: print('All Merges complete.')
         #print('\n\nmerge history:',self.mergeHistory)
