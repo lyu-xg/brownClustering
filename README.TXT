@@ -10,7 +10,9 @@
 
 4. λg. λz.λx.∃y.(present(y) ∧ (∃e. act(e,g) ∧ actor(e,x) ∧ actee(e,y,z)))
 
-5. see wordList.txt (if file does not exist, run parser.py)
+5. see wordList.txt 
+   to reconstruct this file, run parser.py
 
-6. run printer.py to see results.
-   to reconstruct the results, run cluster.py (takes about 10-20 mins)
+6. run printClusters.py to see the clusters;
+   run printBicodes.py  to see the binary strings.
+   to reconstruct these results, run cluster.py (takes about 10-20 mins) and then run these two printers.
