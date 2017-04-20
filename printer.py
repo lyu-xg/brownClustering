@@ -16,7 +16,7 @@ def readClusters():
 
 def printer(someIterable):
     for index,item in enumerate(someIterable):
-        print("{}. {}\n".format(index+1,item))
+        print("{}. {}\n with length {}".format(index+1,item,len(item)))
 
 def generateClusters(history):
     print('got {} history entries'.format(len(history)))

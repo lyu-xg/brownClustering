@@ -13,6 +13,7 @@ class Clusters(object):
         self.K = K
         self.M = gramModel
         self.allWords = set(wordlist)
+        self.binaryCode = {x:'' for x in self.allWords}
         self.remainingWords = wordlist
         self.C = tuple((self.remainingWords.pop(),) for i in range(self.K+1))
         #self.countCache = {}
@@ -93,8 +94,17 @@ class Clusters(object):
                 sum(W(c2,w) for w in otherNodes) + \
                 sum(W(c1+c2,w) for w in otherNodes)
 
+    def recordBinaryString(self,m1,m2):
+        B = self.binaryCode
+        assert len(m1) == 1 and len(m2) == 1
+        for x in self.actualClusters[m1]:
+            B[x[0]]+='0'
+        for x in self.actualClusters[m2]:
+            B[x[0]]+='1'
+
     def recordActualClusters(self, m1, m2):
         C = self.actualClusters
+        self.recordBinaryString(m1,m2)
         self.mergeHistory.append((m1,m2))
         if len(C) != 41:
             print('WARNING: actual clusters size {}, while recording {} and {}'.format(len(C),m1,m2))
@@ -179,10 +189,12 @@ class Clusters(object):
 
 
     def saveProgress(self):
-        with open('savedHistory.pyon','w') as outfile:
-            outfile.write(repr(self.mergeHistory))
+        #with open('savedHistory.pyon','w') as outfile:
+        #    outfile.write(repr(self.mergeHistory))
         with open('savedClusters.pyon','w') as outfile:
             outfile.write(repr(self.actualClusters))
+        with open('savedBinaryStrings.pyon','w') as outfile:
+            outfile.write(repr(self.binaryCode))
 
     def keepMerging(self):
         print('initally',self.L.most_common(3))
