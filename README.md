@@ -25,3 +25,5 @@ Run printBicodes.py and printClusters.py to see generated clusters.
 Run cluster.py to re-run and re-generate the clusters.
 
 To run brown clustering on other corpus, simply change directory variable in parser.py will do the trick.
+
+Currently welcome all pull requests regarding generalizations, debugging and efficiency improvements. 
